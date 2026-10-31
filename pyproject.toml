@@ -1,0 +1,17 @@
+[project]
+name = "portfolio-management"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "flet>=1.0.5",
+]
+
+[dependency-groups]
+dev = [
+    "flet-cli>=1.0.5",
+    "flet-desktop>=1.0.5",
+    "flet-web>=1.0.5",
+    "flet[test]>=1.0.5",
+]
