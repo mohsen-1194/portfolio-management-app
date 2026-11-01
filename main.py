@@ -60,34 +60,27 @@ class AddAssetDialog(ft.AlertDialog):
 @ft.control
 class PortfolioApp(ft.Column):
     def init(self):
-
-        self.new_asset = ft.FloatingActionButton(
-            icon=ft.Icons.ADD, on_click=self.add_clicked
-        )
-        self.width = 400
-        self.controls = [self.new_asset]
+        pass
 
     def add_clicked(self, e):
-        add_asset_dialog = AddAssetDialog(
-            title=ft.Text("Enter your amount and press save"),
-            content=ft.Text("This is the contect of msg dialog"),
-            actions=[
-                ft.TextButton("Save"),
-                ft.TextButton("Cancel", on_click=lambda e: self.page.pop_dialog()),
-            ],
-        )
+        add_asset_dialog = AddAssetDialog()
         self.page.show_dialog(add_asset_dialog)
 
 
 def main(page: ft.Page) -> None:
     page.title = "Portfolio Management"
     page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
-    page.window.width = 800
-    page.window.height = 600
+    page.window.width = 450
+    page.window.height = 750
+
     page.update()
 
     portfolio = PortfolioApp()
-
+    page.floating_action_button = ft.FloatingActionButton(
+        icon=ft.Icons.ADD, on_click=portfolio.add_clicked
+    )
+    page.floating_action_button_location = ft.FloatingActionButtonLocation.END_FLOAT
+    page.update()
     page.add(portfolio)
 
 
