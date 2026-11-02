@@ -1,41 +1,63 @@
 import json
+import os
 from collections.abc import Callable
 from dataclasses import field
 
+# from pathlib import Path
 import flet as ft
 
 from models import Asset, portfolio
 
+# DATA_FILE = Path(os.getenv("FLET_APP_STORAGE_DATA", ".")) / "data.json"
+
 
 def add_to_portfolio(asset: Asset) -> None:
-    # check exsiting assets first
-
+    for a in portfolio.assets:
+        if a.asset_type == asset.asset_type:
+            a.amount_of_cash += asset.amount_of_cash
+            return
     portfolio.assets.append(asset)
 
 
-def cal_percentage(asset: Asset) -> None:
-    add_to_portfolio(asset)
-
-    total = sum(a.amount_of_cash for a in portfolio.assets)
+def cal_percentage(assets: list[Asset]) -> None:
+    total = sum(asset.amount_of_cash for asset in assets)
 
     if total == 0:
         return
 
-    for a in portfolio.assets:
-        a.percentage = round((a.amount_of_cash / total) * 100, 2)
-    print(f"assets: {portfolio.assets}")
+    for asset in assets:
+        asset.percentage = round((asset.amount_of_cash / total) * 100, 2)
 
 
 def save_data(asset: Asset) -> None:
-    # check exsiting assets first
-    asset_dict = {
-        "asset_type": asset.asset_type,
-        "amount_of_cash": asset.amount_of_cash,
-        "percentage": asset.percentage,
-    }
-    with open("data.jsonl", "a", encoding="utf-8") as f:
-        f.write(json.dumps(asset_dict, ensure_ascii=False) + "\n")
-    print("data saved succussfuly")
+    # load existing (or start fresh if file doesn't exist)
+    if os.path.exists("data.json") and os.path.getsize("data.json") > 0:
+        with open("data.json", "r", encoding="utf-8") as f:
+            data = json.load(f)
+    else:
+        data = {}
+
+    # update if asset_type exists, insert if it doesn't
+    if asset.asset_type in data:
+        data[asset.asset_type]["amount_of_cash"] += asset.amount_of_cash
+    else:
+        data.update({asset.asset_type: {"amount_of_cash": asset.amount_of_cash}})
+
+    # rewrite the whole file
+
+    with open("data.json", "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
+
+    """Three important steps here not implemented yet for scuring writing data to a file
+    Level 1: Atomic write (write to a temporary file, then os.replace).
+
+    Level 2: keep a backup and recover without the user
+    Backup file and recovery (data.json.bak, read_data() trying 
+    the backup, then renaming a broken file).
+
+    Level 3: if both files fail, start fresh but never delete
+    An “Export” or “Reset data” button.
+    """
 
 
 def show_in_piechart(): ...
@@ -106,12 +128,25 @@ class PortfolioAppUI(ft.Column):
         add_asset_dialog = AddAssetDialog(on_save=self.add_asset)
         self.page.show_dialog(add_asset_dialog)
 
+    def show_msg(self, text):
+        self.page.show_dialog(ft.SnackBar(ft.Text(text)))
+
     def add_asset(self, asset):
-        cal_percentage(asset)
-        save_data(asset)
+        try:
+            save_data(asset)
+        except json.JSONDecodeError:
+            self.show_msg("Your saved data could not be read")
+            # could log the real error here for devs
+            return
+        except OSError:
+            self.show_msg("Failed to save data")
+            # could log the real error here for devs
+            return
+        add_to_portfolio(asset)
+        cal_percentage(portfolio.assets)
         # add to self.assets to show on main page
         print(portfolio.assets)
-        self.page.show_dialog(ft.SnackBar(ft.Text("Asset saved successfully")))
+        self.show_msg("Asset saved successfully")
 
 
 def main(page: ft.Page) -> None:
