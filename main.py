@@ -38,22 +38,25 @@ def save_data(asset: Asset) -> None:
     print("data saved succussfuly")
 
 
-def add_to_portfolio(asset: Asset) -> None: ...
-def cal_percentage(data: Asset) -> None: ...
 def show_in_piechart(): ...
-def save_data(data: Asset) -> None: ...
+
+
 def read_data() -> None: ...
+def delete_data(asset: Asset) -> None: ...
+def edit_data(asset: Asset) -> None: ...
 
 
-asset_types_options = [ft.dropdown.Option(t) for t in DEFAULT_ASSET_TYPES]
+asset_types_options = [ft.dropdown.Option(t) for t in portfolio.asset_types]
 
 
 @ft.control
 class AddAssetDialog(ft.AlertDialog):
+    on_save: Callable[[Asset], None] = field(default=lambda asset: None)
+
     def init(self):
         self.a_type = ft.Dropdown(options=asset_types_options, label="Asset type")
         self.amount = ft.TextField(
-            hint_text="Amount of cash (Local currency)",
+            hint_text="Amount of cash (local currency)",
             keyboard_type=ft.KeyboardType.NUMBER,
             input_filter=ft.InputFilter(
                 regex_string=r"^[0-9]*\.?[0-9]*",
@@ -90,16 +93,25 @@ class AddAssetDialog(ft.AlertDialog):
         self.update()
         if any((self.amount.error, self.a_type.error_text)):
             return
+        asset = Asset(self.a_type.value, float(self.amount.value))
+        self.on_save(asset)
 
 
 @ft.control
-class PortfolioApp(ft.Column):
+class PortfolioAppUI(ft.Column):
     def init(self):
         pass
 
     def add_clicked(self, e):
-        add_asset_dialog = AddAssetDialog()
+        add_asset_dialog = AddAssetDialog(on_save=self.add_asset)
         self.page.show_dialog(add_asset_dialog)
+
+    def add_asset(self, asset):
+        cal_percentage(asset)
+        save_data(asset)
+        # add to self.assets to show on main page
+        print(portfolio.assets)
+        self.page.show_dialog(ft.SnackBar(ft.Text("Asset saved successfully")))
 
 
 def main(page: ft.Page) -> None:
@@ -110,13 +122,13 @@ def main(page: ft.Page) -> None:
 
     page.update()
 
-    portfolio = PortfolioApp()
+    portfolio_ui = PortfolioAppUI()
     page.floating_action_button = ft.FloatingActionButton(
-        icon=ft.Icons.ADD, on_click=portfolio.add_clicked
+        icon=ft.Icons.ADD, on_click=portfolio_ui.add_clicked
     )
     page.floating_action_button_location = ft.FloatingActionButtonLocation.END_FLOAT
     page.update()
-    page.add(portfolio)
+    page.add(portfolio_ui)
 
 
 if __name__ == "__main__":
