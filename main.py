@@ -1,6 +1,41 @@
+import json
+from collections.abc import Callable
+from dataclasses import field
+
 import flet as ft
 
-from models import DEFAULT_ASSET_TYPES, Asset
+from models import Asset, portfolio
+
+
+def add_to_portfolio(asset: Asset) -> None:
+    # check exsiting assets first
+
+    portfolio.assets.append(asset)
+
+
+def cal_percentage(asset: Asset) -> None:
+    add_to_portfolio(asset)
+
+    total = sum(a.amount_of_cash for a in portfolio.assets)
+
+    if total == 0:
+        return
+
+    for a in portfolio.assets:
+        a.percentage = round((a.amount_of_cash / total) * 100, 2)
+    print(f"assets: {portfolio.assets}")
+
+
+def save_data(asset: Asset) -> None:
+    # check exsiting assets first
+    asset_dict = {
+        "asset_type": asset.asset_type,
+        "amount_of_cash": asset.amount_of_cash,
+        "percentage": asset.percentage,
+    }
+    with open("data.jsonl", "a", encoding="utf-8") as f:
+        f.write(json.dumps(asset_dict, ensure_ascii=False) + "\n")
+    print("data saved succussfuly")
 
 
 def add_to_portfolio(asset: Asset) -> None: ...
