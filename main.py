@@ -8,6 +8,7 @@ import flet as ft
 
 from models import Asset, portfolio
 
+# This path is for buil env. Commented out for dev env.
 # DATA_FILE = Path(os.getenv("FLET_APP_STORAGE_DATA", ".")) / "data.json"
 
 
@@ -60,7 +61,7 @@ def save_data(asset: Asset) -> None:
     """
 
 
-def show_in_piechart(): ...
+def show_piechart(): ...
 
 
 def read_data() -> None: ...
@@ -120,9 +121,25 @@ class AddAssetDialog(ft.AlertDialog):
 
 
 @ft.control
+class AssetRow(ft.Row):
+    asset_type: str = ""
+    amount: float = 0.0
+    percentage: float = 0.0
+
+    def init(self):
+        self.controls = [
+            ft.Text(self.asset_type, expand=True),
+            ft.Text(f"{self.percentage:.1f}%"),
+            ft.Text(f"{self.amount:,.2f}"),
+        ]
+
+
+@ft.control
 class PortfolioAppUI(ft.Column):
     def init(self):
-        pass
+        self.assets = ft.Column()
+        self.empty_portfolio_msg = ft.Text("No assets yet. Press + button to add one.")
+        self.controls = [self.empty_portfolio_msg, self.assets]
 
     def add_clicked(self, e):
         add_asset_dialog = AddAssetDialog(on_save=self.add_asset)
@@ -130,6 +147,19 @@ class PortfolioAppUI(ft.Column):
 
     def show_msg(self, text):
         self.page.show_dialog(ft.SnackBar(ft.Text(text)))
+
+    def refresh(self):
+        self.assets.controls.clear()
+        # presentation
+        for asset in portfolio.assets:
+            new_asset_row = AssetRow(
+                asset_type=asset.asset_type,
+                amount=asset.amount_of_cash,
+                percentage=asset.percentage,
+            )
+            self.assets.controls.append(new_asset_row)
+        self.empty_portfolio_msg.visible = len(self.assets.controls) == 0
+        self.update()
 
     def add_asset(self, asset):
         try:
@@ -144,8 +174,7 @@ class PortfolioAppUI(ft.Column):
             return
         add_to_portfolio(asset)
         cal_percentage(portfolio.assets)
-        # add to self.assets to show on main page
-        print(portfolio.assets)
+        self.refresh()
         self.show_msg("Asset saved successfully")
 
 
@@ -159,7 +188,8 @@ def main(page: ft.Page) -> None:
 
     portfolio_ui = PortfolioAppUI()
     page.floating_action_button = ft.FloatingActionButton(
-        icon=ft.Icons.ADD, on_click=portfolio_ui.add_clicked
+        icon=ft.Icons.ADD,
+        on_click=portfolio_ui.add_clicked,
     )
     page.floating_action_button_location = ft.FloatingActionButtonLocation.END_FLOAT
     page.update()
