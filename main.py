@@ -20,6 +20,10 @@ def add_to_portfolio(asset: Asset) -> None:
     portfolio.assets.append(asset)
 
 
+def remove_from_portfolio(asset: Asset):
+    portfolio.assets.remove(asset)
+
+
 def cal_percentage(assets: list[Asset]) -> None:
     total = sum(asset.amount_of_cash for asset in assets)
 
@@ -74,7 +78,20 @@ def read_data() -> None:
     cal_percentage(portfolio.assets)
 
 
-def delete_data(asset: Asset) -> None: ...
+def delete_data(asset: Asset) -> None:
+    if os.path.exists("data.json") and os.path.getsize("data.json") > 0:
+        with open("data.json", "r", encoding="utf-8") as f:
+            data = json.load(f)
+    else:
+        data = {}
+
+    if len(data) > 0:
+        data.pop(asset.asset_type)
+
+    with open("data.json", "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
+
+
 def edit_data(asset: Asset) -> None: ...
 def show_piechart(): ...
 
@@ -135,13 +152,23 @@ class AssetRow(ft.Row):
     asset_type: str = ""
     amount: float = 0.0
     percentage: float = 0.0
+    on_delete: Callable[[Asset], None] = field(default=lambda asset: None)
 
     def init(self):
         self.controls = [
             ft.Text(self.asset_type, expand=True),
             ft.Text(f"{self.percentage:.1f}%"),
             ft.Text(f"{self.amount:,.2f}"),
+            ft.IconButton(
+                icon=ft.Icons.DELETE_OUTLINE,
+                tooltip="Delete asset",
+                on_click=self.delete_clicked,
+            ),
         ]
+
+    def delete_clicked(self, e):
+        asset = Asset(self.asset_type, self.amount, percentage=self.percentage)
+        self.on_delete(asset)
 
 
 @ft.control
@@ -172,6 +199,7 @@ class PortfolioAppUI(ft.Column):
                 asset_type=asset.asset_type,
                 amount=asset.amount_of_cash,
                 percentage=asset.percentage,
+                on_delete=self.asset_delete,
             )
             self.assets.controls.append(new_asset_row)
         self.empty_portfolio_msg.visible = not portfolio.assets
@@ -192,6 +220,21 @@ class PortfolioAppUI(ft.Column):
         cal_percentage(portfolio.assets)
         self.refresh()
         self.show_msg("Asset saved successfully")
+
+    def asset_delete(self, asset):
+        try:
+            delete_data(asset)
+        except json.JSONDecodeError:
+            self.show_msg("Your saved data could not be read")
+            # could log the real error here for devs
+            return
+        except OSError:
+            self.show_msg("Failed to delete data")
+            # could log the real error here for devs
+            return
+        remove_from_portfolio(asset)
+        cal_percentage(portfolio.assets)
+        self.refresh()
 
 
 def main(page: ft.Page) -> None:
