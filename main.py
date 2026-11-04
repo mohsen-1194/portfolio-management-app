@@ -61,12 +61,22 @@ def save_data(asset: Asset) -> None:
     """
 
 
-def show_piechart(): ...
+def read_data() -> None:
+    if os.path.exists("data.json") and os.path.getsize("data.json") > 0:
+        with open("data.json", "r", encoding="utf-8") as f:
+            data = json.load(f)
+    else:
+        data = {}
+
+    for item in data:
+        asset = Asset(asset_type=item, amount_of_cash=data[item]["amount_of_cash"])
+        add_to_portfolio(asset)
+    cal_percentage(portfolio.assets)
 
 
-def read_data() -> None: ...
 def delete_data(asset: Asset) -> None: ...
 def edit_data(asset: Asset) -> None: ...
+def show_piechart(): ...
 
 
 asset_types_options = [ft.dropdown.Option(t) for t in portfolio.asset_types]
@@ -139,6 +149,12 @@ class PortfolioAppUI(ft.Column):
     def init(self):
         self.assets = ft.Column()
         self.empty_portfolio_msg = ft.Text("No assets yet. Press + button to add one.")
+
+        try:
+            read_data()
+        except json.JSONDecodeError:
+            self.show_msg("Your saved data could not be read")
+
         self.controls = [self.empty_portfolio_msg, self.assets]
 
     def add_clicked(self, e):
@@ -158,7 +174,7 @@ class PortfolioAppUI(ft.Column):
                 percentage=asset.percentage,
             )
             self.assets.controls.append(new_asset_row)
-        self.empty_portfolio_msg.visible = len(self.assets.controls) == 0
+        self.empty_portfolio_msg.visible = not portfolio.assets
         self.update()
 
     def add_asset(self, asset):
@@ -194,6 +210,7 @@ def main(page: ft.Page) -> None:
     page.floating_action_button_location = ft.FloatingActionButtonLocation.END_FLOAT
     page.update()
     page.add(portfolio_ui)
+    portfolio_ui.refresh()
 
 
 if __name__ == "__main__":
