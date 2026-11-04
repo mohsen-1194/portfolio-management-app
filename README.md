@@ -7,5 +7,5 @@ calculates the percentage of each one and shows them in a pie chart.
 Built with Python and the [Flet](https://flet.dev) library.
 
 ## Status
-In development. The input dialog is ready, but the percentage calculation
-and the pie chart are not implemented yet.
+In development.
+The pie chart is not implemented yet.
