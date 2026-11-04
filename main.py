@@ -24,6 +24,13 @@ def remove_from_portfolio(asset: Asset):
     portfolio.assets.remove(asset)
 
 
+def edit_in_portfolio(asset: Asset):
+    for a in portfolio.assets:
+        if a.asset_type == asset.asset_type:
+            a.amount_of_cash = asset.amount_of_cash
+            return
+
+
 def cal_percentage(assets: list[Asset]) -> None:
     total = sum(asset.amount_of_cash for asset in assets)
 
@@ -92,7 +99,20 @@ def delete_data(asset: Asset) -> None:
         json.dump(data, f, indent=2, ensure_ascii=False)
 
 
-def edit_data(asset: Asset) -> None: ...
+def edit_data(asset: Asset) -> None:
+    if os.path.exists("data.json") and os.path.getsize("data.json") > 0:
+        with open("data.json", "r", encoding="utf-8") as f:
+            data = json.load(f)
+    else:
+        data = {}
+
+    if len(data) > 0:
+        data[asset.asset_type]["amount_of_cash"] = asset.amount_of_cash
+
+    with open("data.json", "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
+
+
 def show_piechart(): ...
 
 
@@ -153,12 +173,18 @@ class AssetRow(ft.Row):
     amount: float = 0.0
     percentage: float = 0.0
     on_delete: Callable[[Asset], None] = field(default=lambda asset: None)
+    on_edit: Callable[[Asset], None] = field(default=lambda asset: None)
 
     def init(self):
         self.controls = [
             ft.Text(self.asset_type, expand=True),
             ft.Text(f"{self.percentage:.1f}%"),
             ft.Text(f"{self.amount:,.2f}"),
+            ft.IconButton(
+                icon=ft.Icons.CREATE_OUTLINED,
+                tooltip="Edit asset",
+                on_click=self.edit_clicked,
+            ),
             ft.IconButton(
                 icon=ft.Icons.DELETE_OUTLINE,
                 tooltip="Delete asset",
@@ -169,6 +195,18 @@ class AssetRow(ft.Row):
     def delete_clicked(self, e):
         asset = Asset(self.asset_type, self.amount, percentage=self.percentage)
         self.on_delete(asset)
+
+    def edit_clicked(self, e):
+        edit_dialog = AddAssetDialog(on_save=self.on_edit)
+        edit_dialog.title = "Edit asset"
+        edit_dialog.a_type.value = self.asset_type
+        edit_dialog.amount.value = self.amount
+        edit_dialog.a_type.disabled = True
+        self.page.show_dialog(edit_dialog)
+        asset = Asset(
+            self.asset_type, edit_dialog.amount.value, percentage=self.percentage
+        )
+        self.on_edit(asset)
 
 
 @ft.control
@@ -200,6 +238,7 @@ class PortfolioAppUI(ft.Column):
                 amount=asset.amount_of_cash,
                 percentage=asset.percentage,
                 on_delete=self.asset_delete,
+                on_edit=self.asset_edit,
             )
             self.assets.controls.append(new_asset_row)
         self.empty_portfolio_msg.visible = not portfolio.assets
@@ -235,6 +274,22 @@ class PortfolioAppUI(ft.Column):
         remove_from_portfolio(asset)
         cal_percentage(portfolio.assets)
         self.refresh()
+
+    def asset_edit(self, asset):
+        try:
+            edit_data(asset)
+        except json.JSONDecodeError:
+            self.show_msg("Your saved data could not be read")
+            # could log the real error here for devs
+            return
+        except OSError:
+            self.show_msg("Failed to edit data")
+            # could log the real error here for devs
+            return
+        edit_in_portfolio(asset)
+        cal_percentage(portfolio.assets)
+        self.refresh()
+        self.show_msg("Asset edited successfully")
 
 
 def main(page: ft.Page) -> None:
