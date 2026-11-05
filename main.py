@@ -8,8 +8,9 @@ import flet as ft
 
 from models import Asset, portfolio
 
-# This path is for buil env. Commented out for dev env.
+# This path is for build env. Commented out for dev env.
 # DATA_FILE = Path(os.getenv("FLET_APP_STORAGE_DATA", ".")) / "data.json"
+asset_types_options = [ft.dropdown.Option(t) for t in portfolio.asset_types]
 
 
 def add_to_portfolio(asset: Asset) -> None:
@@ -21,7 +22,10 @@ def add_to_portfolio(asset: Asset) -> None:
 
 
 def remove_from_portfolio(asset: Asset):
-    portfolio.assets.remove(asset)
+    for a in portfolio.assets:
+        if a.asset_type == asset.asset_type:
+            portfolio.assets.remove(a)
+            return
 
 
 def edit_in_portfolio(asset: Asset):
@@ -60,16 +64,15 @@ def save_data(asset: Asset) -> None:
     with open("data.json", "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
 
-    """Three important steps here not implemented yet for scuring writing data to a file
-    Level 1: Atomic write (write to a temporary file, then os.replace).
+    # TODO: Three important steps here not implemented yet for securing writing data to a file
+    # Level 1: Atomic write (write to a temporary file, then os.replace).
 
-    Level 2: keep a backup and recover without the user
-    Backup file and recovery (data.json.bak, read_data() trying 
-    the backup, then renaming a broken file).
+    # Level 2: keep a backup and recover without the user
+    # Backup file and recovery (data.json.bak, read_data() trying
+    # the backup, then renaming a broken file).
 
-    Level 3: if both files fail, start fresh but never delete
-    An “Export” or “Reset data” button.
-    """
+    # Level 3: if both files fail, start fresh but never delete
+    # An “Export” or “Reset data” button.
 
 
 def read_data() -> None:
@@ -79,6 +82,7 @@ def read_data() -> None:
     else:
         data = {}
 
+    portfolio.assets.clear()
     for item in data:
         asset = Asset(asset_type=item, amount_of_cash=data[item]["amount_of_cash"])
         add_to_portfolio(asset)
@@ -116,16 +120,13 @@ def edit_data(asset: Asset) -> None:
 def show_piechart(): ...
 
 
-asset_types_options = [ft.dropdown.Option(t) for t in portfolio.asset_types]
-
-
 @ft.control
 class AddAssetDialog(ft.AlertDialog):
-    on_save: Callable[[Asset], None] = field(default=lambda asset: None)
+    on_save: Callable[[Asset], bool] = field(default=lambda asset: False)
 
     def init(self):
-        self.a_type = ft.Dropdown(options=asset_types_options, label="Asset type")
-        self.amount = ft.TextField(
+        self.asset_type = ft.Dropdown(options=asset_types_options, label="Asset type")
+        self.amount_of_cash = ft.TextField(
             hint_text="Amount of cash (local currency)",
             keyboard_type=ft.KeyboardType.NUMBER,
             input_filter=ft.InputFilter(
@@ -137,8 +138,8 @@ class AddAssetDialog(ft.AlertDialog):
             tight=True,
             width=350,
             controls=[
-                self.a_type,
-                self.amount,
+                self.asset_type,
+                self.amount_of_cash,
             ],
         )
         self.actions = [
@@ -147,30 +148,40 @@ class AddAssetDialog(ft.AlertDialog):
         ]
 
     def save_clicked(self, e):
-        self.a_type.error_text = None
-        self.amount.error = None
+        self.asset_type.error_text = None
+        self.amount_of_cash.error = None
 
-        if self.a_type.value is None:
-            self.a_type.error_text = "Choose one type"
-        if self.amount.value == "":
-            self.amount.error = "Amount can not be empty"
+        if self.asset_type.value is None:
+            self.asset_type.error_text = "Choose one type"
+        if self.amount_of_cash.value == "":
+            self.amount_of_cash.error = "Amount can not be empty"
         try:
-            if self.amount.value != "" and float(self.amount.value) <= 0:
-                self.amount.error = "Amount should be above 0"
+            if (
+                self.amount_of_cash.value != ""
+                and float(self.amount_of_cash.value) <= 0
+            ):
+                self.amount_of_cash.error = "Amount should be above 0"
         except ValueError:
-            self.amount.error = "Invalid input"
+            self.amount_of_cash.error = "Invalid input"
 
         self.update()
-        if any((self.amount.error, self.a_type.error_text)):
+        if any((self.amount_of_cash.error, self.asset_type.error_text)):
             return
-        asset = Asset(self.a_type.value, float(self.amount.value))
-        self.on_save(asset)
+        asset = Asset(self.asset_type.value, float(self.amount_of_cash.value))
+
+        result = self.on_save(asset)
+        # clear the fields after catching values
+        if result:
+            self.asset_type.value = None
+            self.amount_of_cash.value = ""
+            self.actions[1].content = "Done"
+            self.update()
 
 
 @ft.control
 class AssetRow(ft.Row):
     asset_type: str = ""
-    amount: float = 0.0
+    amount_of_cash: float = 0.0
     percentage: float = 0.0
     on_delete: Callable[[Asset], None] = field(default=lambda asset: None)
     on_edit: Callable[[Asset], None] = field(default=lambda asset: None)
@@ -179,7 +190,7 @@ class AssetRow(ft.Row):
         self.controls = [
             ft.Text(self.asset_type, expand=True),
             ft.Text(f"{self.percentage:.1f}%"),
-            ft.Text(f"{self.amount:,.2f}"),
+            ft.Text(f"{self.amount_of_cash:,.2f}"),
             ft.IconButton(
                 icon=ft.Icons.CREATE_OUTLINED,
                 tooltip="Edit asset",
@@ -193,34 +204,27 @@ class AssetRow(ft.Row):
         ]
 
     def delete_clicked(self, e):
-        asset = Asset(self.asset_type, self.amount, percentage=self.percentage)
+        # I should add confirmation dialog here(or a SnackBar with undo action)
+        # and some msg after deletion
+        asset = Asset(self.asset_type, self.amount_of_cash, percentage=self.percentage)
         self.on_delete(asset)
 
     def edit_clicked(self, e):
         edit_dialog = AddAssetDialog(on_save=self.on_edit)
-        edit_dialog.title = "Edit asset"
-        edit_dialog.a_type.value = self.asset_type
-        edit_dialog.amount.value = self.amount
-        edit_dialog.a_type.disabled = True
+        edit_dialog.title = ft.Text("Edit asset")
+        edit_dialog.asset_type.value = self.asset_type
+        edit_dialog.amount.value = str(self.amount_of_cash)
+        edit_dialog.asset_type.disabled = True
+
         self.page.show_dialog(edit_dialog)
-        asset = Asset(
-            self.asset_type, edit_dialog.amount.value, percentage=self.percentage
-        )
-        self.on_edit(asset)
 
 
 @ft.control
 class PortfolioAppUI(ft.Column):
     def init(self):
-        self.assets = ft.Column()
+        self.asset_rows = ft.Column()
         self.empty_portfolio_msg = ft.Text("No assets yet. Press + button to add one.")
-
-        try:
-            read_data()
-        except json.JSONDecodeError:
-            self.show_msg("Your saved data could not be read")
-
-        self.controls = [self.empty_portfolio_msg, self.assets]
+        self.controls = [self.empty_portfolio_msg, self.assets_rows]
 
     def add_clicked(self, e):
         add_asset_dialog = AddAssetDialog(on_save=self.add_asset)
@@ -230,17 +234,17 @@ class PortfolioAppUI(ft.Column):
         self.page.show_dialog(ft.SnackBar(ft.Text(text)))
 
     def refresh(self):
-        self.assets.controls.clear()
+        self.asset_rows.controls.clear()
         # presentation
         for asset in portfolio.assets:
             new_asset_row = AssetRow(
                 asset_type=asset.asset_type,
                 amount=asset.amount_of_cash,
                 percentage=asset.percentage,
-                on_delete=self.asset_delete,
-                on_edit=self.asset_edit,
+                on_delete=self.delete_asset,
+                on_edit=self.edit_asset,
             )
-            self.assets.controls.append(new_asset_row)
+            self.asset_rows.controls.append(new_asset_row)
         self.empty_portfolio_msg.visible = not portfolio.assets
         self.update()
 
@@ -250,17 +254,18 @@ class PortfolioAppUI(ft.Column):
         except json.JSONDecodeError:
             self.show_msg("Your saved data could not be read")
             # could log the real error here for devs
-            return
+            return False
         except OSError:
             self.show_msg("Failed to save data")
             # could log the real error here for devs
-            return
+            return False
         add_to_portfolio(asset)
         cal_percentage(portfolio.assets)
         self.refresh()
         self.show_msg("Asset saved successfully")
+        return True
 
-    def asset_delete(self, asset):
+    def delete_asset(self, asset):
         try:
             delete_data(asset)
         except json.JSONDecodeError:
@@ -275,7 +280,7 @@ class PortfolioAppUI(ft.Column):
         cal_percentage(portfolio.assets)
         self.refresh()
 
-    def asset_edit(self, asset):
+    def edit_asset(self, asset):
         try:
             edit_data(asset)
         except json.JSONDecodeError:
@@ -289,6 +294,7 @@ class PortfolioAppUI(ft.Column):
         edit_in_portfolio(asset)
         cal_percentage(portfolio.assets)
         self.refresh()
+        self.page.pop_dialog()
         self.show_msg("Asset edited successfully")
 
 
@@ -298,7 +304,11 @@ def main(page: ft.Page) -> None:
     page.window.width = 450
     page.window.height = 750
 
-    page.update()
+    error_msg = ""
+    try:
+        read_data()
+    except json.JSONDecodeError:
+        error_msg = "Your saved data could not be read"
 
     portfolio_ui = PortfolioAppUI()
     page.floating_action_button = ft.FloatingActionButton(
@@ -306,8 +316,11 @@ def main(page: ft.Page) -> None:
         on_click=portfolio_ui.add_clicked,
     )
     page.floating_action_button_location = ft.FloatingActionButtonLocation.END_FLOAT
-    page.update()
+
     page.add(portfolio_ui)
+    if error_msg:
+        portfolio_ui.show_msg(error_msg)
+
     portfolio_ui.refresh()
 
 
