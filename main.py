@@ -213,7 +213,7 @@ class AssetRow(ft.Row):
         edit_dialog = AddAssetDialog(on_save=self.on_edit)
         edit_dialog.title = ft.Text("Edit asset")
         edit_dialog.asset_type.value = self.asset_type
-        edit_dialog.amount.value = str(self.amount_of_cash)
+        edit_dialog.amount_of_cash.value = str(self.amount_of_cash)
         edit_dialog.asset_type.disabled = True
 
         self.page.show_dialog(edit_dialog)
@@ -224,7 +224,7 @@ class PortfolioAppUI(ft.Column):
     def init(self):
         self.asset_rows = ft.Column()
         self.empty_portfolio_msg = ft.Text("No assets yet. Press + button to add one.")
-        self.controls = [self.empty_portfolio_msg, self.assets_rows]
+        self.controls = [self.empty_portfolio_msg, self.asset_rows]
 
     def add_clicked(self, e):
         add_asset_dialog = AddAssetDialog(on_save=self.add_asset)
@@ -239,7 +239,7 @@ class PortfolioAppUI(ft.Column):
         for asset in portfolio.assets:
             new_asset_row = AssetRow(
                 asset_type=asset.asset_type,
-                amount=asset.amount_of_cash,
+                amount_of_cash=asset.amount_of_cash,
                 percentage=asset.percentage,
                 on_delete=self.delete_asset,
                 on_edit=self.edit_asset,
