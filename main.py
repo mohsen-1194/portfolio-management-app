@@ -236,7 +236,7 @@ class PortfolioAppUI(ft.Column):
         self.page.show_dialog(add_asset_dialog)
 
     def show_msg(self, text):
-        self.page.show_dialog(ft.SnackBar(ft.Text(text)))
+        self.page.show_dialog(ft.SnackBar(ft.Text(text), duration=2000))
 
     def refresh(self):
         self.asset_rows.controls.clear()
