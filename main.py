@@ -21,14 +21,14 @@ def add_to_portfolio(asset: Asset) -> None:
     portfolio.assets.append(asset)
 
 
-def remove_from_portfolio(asset: Asset):
+def remove_from_portfolio(asset: Asset) -> None:
     for a in portfolio.assets:
         if a.asset_type == asset.asset_type:
             portfolio.assets.remove(a)
             return
 
 
-def edit_in_portfolio(asset: Asset):
+def edit_in_portfolio(asset: Asset) -> None:
     for a in portfolio.assets:
         if a.asset_type == asset.asset_type:
             a.amount_of_cash = asset.amount_of_cash
@@ -203,11 +203,21 @@ class AssetRow(ft.Row):
             ),
         ]
 
-    def delete_clicked(self, e):
-        # I should add confirmation dialog here(or a SnackBar with undo action)
-        # and some msg after deletion
+    def delete_confirmed(self, e):
         asset = Asset(self.asset_type, self.amount_of_cash, percentage=self.percentage)
+        self.page.pop_dialog()
         self.on_delete(asset)
+
+    def delete_clicked(self, e):
+        confirm_dialog = ft.AlertDialog(
+            title=ft.Text("Delete asset"),
+            content=ft.Text(f"Do you want to delete {self.asset_type}?"),
+            actions=[
+                ft.TextButton("Delete", on_click=self.delete_confirmed),
+                ft.TextButton("Cancel", on_click=lambda e: self.page.pop_dialog()),
+            ],
+        )
+        self.page.show_dialog(confirm_dialog)
 
     def edit_clicked(self, e):
         edit_dialog = AddAssetDialog(on_save=self.on_edit)
@@ -279,6 +289,7 @@ class PortfolioAppUI(ft.Column):
         remove_from_portfolio(asset)
         cal_percentage(portfolio.assets)
         self.refresh()
+        self.show_msg("Asset removed successfully")
 
     def edit_asset(self, asset):
         try:
