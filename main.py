@@ -2,6 +2,7 @@ import json
 import os
 from collections.abc import Callable
 from dataclasses import field
+from typing import Any
 
 # from pathlib import Path
 import flet as ft
@@ -45,13 +46,23 @@ def cal_percentage(assets: list[Asset]) -> None:
         asset.percentage = round((asset.amount_of_cash / total) * 100, 2)
 
 
-def save_data(asset: Asset) -> None:
+def _load() -> Any | dict:
     # load existing (or start fresh if file doesn't exist)
     if os.path.exists("data.json") and os.path.getsize("data.json") > 0:
         with open("data.json", "r", encoding="utf-8") as f:
             data = json.load(f)
     else:
         data = {}
+    return data
+
+
+def _write(data: dict) -> None:
+    with open("data.json", "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
+
+
+def save_data(asset: Asset) -> None:
+    data = _load()
 
     # update if asset_type exists, insert if it doesn't
     if asset.asset_type in data:
@@ -60,9 +71,7 @@ def save_data(asset: Asset) -> None:
         data.update({asset.asset_type: {"amount_of_cash": asset.amount_of_cash}})
 
     # rewrite the whole file
-
-    with open("data.json", "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
+    _write(data)
 
     # TODO: Three important steps here not implemented yet for securing writing data to a file
     # Level 1: Atomic write (write to a temporary file, then os.replace).
@@ -76,11 +85,7 @@ def save_data(asset: Asset) -> None:
 
 
 def read_data() -> None:
-    if os.path.exists("data.json") and os.path.getsize("data.json") > 0:
-        with open("data.json", "r", encoding="utf-8") as f:
-            data = json.load(f)
-    else:
-        data = {}
+    data = _load()
 
     portfolio.assets.clear()
     for item in data:
@@ -90,31 +95,21 @@ def read_data() -> None:
 
 
 def delete_data(asset: Asset) -> None:
-    if os.path.exists("data.json") and os.path.getsize("data.json") > 0:
-        with open("data.json", "r", encoding="utf-8") as f:
-            data = json.load(f)
-    else:
-        data = {}
+    data = _load()
 
     if len(data) > 0:
         data.pop(asset.asset_type)
 
-    with open("data.json", "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
+    _write(data)
 
 
 def edit_data(asset: Asset) -> None:
-    if os.path.exists("data.json") and os.path.getsize("data.json") > 0:
-        with open("data.json", "r", encoding="utf-8") as f:
-            data = json.load(f)
-    else:
-        data = {}
+    data = _load()
 
     if len(data) > 0:
         data[asset.asset_type]["amount_of_cash"] = asset.amount_of_cash
 
-    with open("data.json", "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
+    _write(data)
 
 
 def show_piechart(): ...
