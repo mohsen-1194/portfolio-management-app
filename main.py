@@ -11,7 +11,7 @@ from models import Asset, portfolio
 
 # This path is for build env. Commented out for dev env.
 # DATA_FILE = Path(os.getenv("FLET_APP_STORAGE_DATA", ".")) / "data.json"
-asset_types_options = [ft.dropdown.Option(t) for t in portfolio.asset_types]
+DATA_FILE = "data.json"
 
 
 class StorageError(Exception):
@@ -22,13 +22,14 @@ def add_to_portfolio(asset: Asset) -> None:
     for a in portfolio.assets:
         if a.asset_type == asset.asset_type:
             a.amount_of_cash += asset.amount_of_cash
+            a.amount_of_cash = round(a.amount_of_cash, 2)
             return
     portfolio.assets.append(asset)
 
 
-def remove_from_portfolio(asset: Asset) -> None:
+def remove_from_portfolio(asset_type: str) -> None:
     for a in portfolio.assets:
-        if a.asset_type == asset.asset_type:
+        if a.asset_type == asset_type:
             portfolio.assets.remove(a)
             return
 
@@ -50,7 +51,7 @@ def cal_percentage(assets: list[Asset]) -> None:
         asset.percentage = round((asset.amount_of_cash / total) * 100, 2)
 
 
-def _validate(data: dict):
+def _validate(data: dict) -> None:
     # I should log specific reason here for each error
     msg = "Your saved data has an unexpected format."
     if type(data) is not dict:
@@ -71,8 +72,8 @@ def _validate(data: dict):
 
 def _load() -> dict:
     try:
-        if os.path.exists("data.json") and os.path.getsize("data.json") > 0:
-            with open("data.json", "r", encoding="utf-8") as f:
+        if os.path.exists(DATA_FILE) and os.path.getsize(DATA_FILE) > 0:
+            with open(DATA_FILE, "r", encoding="utf-8") as f:
                 data = json.load(f)
                 _validate(data)
         else:
@@ -87,23 +88,10 @@ def _load() -> dict:
 
 def _write(data: dict) -> None:
     try:
-        with open("data.json", "w", encoding="utf-8") as f:
+        with open(DATA_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
     except OSError as e:
         raise StorageError("Failed to save data.") from e
-
-
-def save_data(asset: Asset) -> None:
-    data = _load()
-
-    # update if asset_type exists, insert if it doesn't
-    if asset.asset_type in data:
-        data[asset.asset_type]["amount_of_cash"] += asset.amount_of_cash
-    else:
-        data.update({asset.asset_type: {"amount_of_cash": asset.amount_of_cash}})
-
-    # rewrite the whole file
-    _write(data)
 
     # TODO: Three important steps here not implemented yet for securing writing data to a file
     # Level 1: Atomic write (write to a temporary file, then os.replace).
@@ -116,6 +104,22 @@ def save_data(asset: Asset) -> None:
     # An “Export” or “Reset data” button.
 
 
+def save_data(asset: Asset) -> None:
+    data = _load()
+
+    # update if asset_type exists, insert if it doesn't
+    if asset.asset_type in data:
+        data[asset.asset_type]["amount_of_cash"] += asset.amount_of_cash
+        data[asset.asset_type]["amount_of_cash"] = round(
+            data[asset.asset_type]["amount_of_cash"], 2
+        )
+    else:
+        data.update({asset.asset_type: {"amount_of_cash": asset.amount_of_cash}})
+
+    # rewrite the whole file
+    _write(data)
+
+
 def read_data() -> None:
     data = _load()
 
@@ -126,10 +130,10 @@ def read_data() -> None:
     cal_percentage(portfolio.assets)
 
 
-def delete_data(asset: Asset) -> None:
+def delete_data(asset_type: str) -> None:
     data = _load()
 
-    data.pop(asset.asset_type, None)
+    data.pop(asset_type, None)
 
     _write(data)
 
@@ -142,14 +146,12 @@ def edit_data(asset: Asset) -> None:
     _write(data)
 
 
-def show_piechart(): ...
-
-
 @ft.control
 class AddAssetDialog(ft.AlertDialog):
     on_save: Callable[[Asset], bool] = field(default=lambda asset: False)
 
     def init(self):
+        asset_types_options = [ft.dropdown.Option(t) for t in portfolio.asset_types]
         self.asset_type = ft.Dropdown(options=asset_types_options, label="Asset type")
         self.amount_of_cash = ft.TextField(
             hint_text="Amount of cash (local currency)",
@@ -175,25 +177,30 @@ class AddAssetDialog(ft.AlertDialog):
     def save_clicked(self, e):
         self.asset_type.error_text = None
         self.amount_of_cash.error = None
+        amount = None
 
         if self.asset_type.value is None:
             self.asset_type.error_text = "Choose one type"
+
         if self.amount_of_cash.value == "":
             self.amount_of_cash.error = "Amount can not be empty"
-        try:
-            if (
-                self.amount_of_cash.value != ""
-                and float(self.amount_of_cash.value) <= 0
-            ):
-                self.amount_of_cash.error = "Amount should be above 0"
-        except ValueError:
-            self.amount_of_cash.error = "Invalid input"
+        elif len(self.amount_of_cash.value) > 15:
+            self.amount_of_cash.error = "Long number. Maximum characters: 15"
+        else:
+            try:
+                amount = round(float(self.amount_of_cash.value), 2)
+                if amount <= 0:
+                    self.amount_of_cash.error = "Amount should be above 0"
+                elif not math.isfinite(amount):
+                    raise ValueError
+            except ValueError:
+                self.amount_of_cash.error = "Invalid input"
 
         self.update()
         if any((self.amount_of_cash.error, self.asset_type.error_text)):
             return
-        asset = Asset(self.asset_type.value, float(self.amount_of_cash.value))
 
+        asset = Asset(self.asset_type.value, amount)
         result = self.on_save(asset)
         # clear the fields after catching values
         if result:
@@ -208,8 +215,8 @@ class AssetRow(ft.Row):
     asset_type: str = ""
     amount_of_cash: float = 0.0
     percentage: float = 0.0
-    on_delete: Callable[[Asset], None] = field(default=lambda asset: None)
-    on_edit: Callable[[Asset], None] = field(default=lambda asset: None)
+    on_delete: Callable[[str], None] = field(default=lambda asset_type: None)
+    on_edit: Callable[[Asset], bool] = field(default=lambda asset: False)
 
     def init(self):
         self.controls = [
@@ -229,9 +236,8 @@ class AssetRow(ft.Row):
         ]
 
     def delete_confirmed(self, e):
-        asset = Asset(self.asset_type, self.amount_of_cash, percentage=self.percentage)
         self.page.pop_dialog()
-        self.on_delete(asset)
+        self.on_delete(self.asset_type)
 
     def delete_clicked(self, e):
         confirm_dialog = ft.AlertDialog(
@@ -248,7 +254,7 @@ class AssetRow(ft.Row):
         edit_dialog = AddAssetDialog(on_save=self.on_edit)
         edit_dialog.title = ft.Text("Edit asset")
         edit_dialog.asset_type.value = self.asset_type
-        edit_dialog.amount_of_cash.value = str(self.amount_of_cash)
+        edit_dialog.amount_of_cash.value = f"{self.amount_of_cash:.2f}"
         edit_dialog.asset_type.disabled = True
 
         self.page.show_dialog(edit_dialog)
@@ -265,12 +271,12 @@ class PortfolioAppUI(ft.Column):
         add_asset_dialog = AddAssetDialog(on_save=self.add_asset)
         self.page.show_dialog(add_asset_dialog)
 
-    def show_msg(self, text):
+    def show_msg(self, text: str):
         self.page.show_dialog(ft.SnackBar(ft.Text(text), duration=2000))
 
     def refresh(self):
         self.asset_rows.controls.clear()
-        # presentation
+
         for asset in portfolio.assets:
             new_asset_row = AssetRow(
                 asset_type=asset.asset_type,
@@ -283,7 +289,7 @@ class PortfolioAppUI(ft.Column):
         self.empty_portfolio_msg.visible = not portfolio.assets
         self.update()
 
-    def storage_call(self, func, *args):
+    def storage_call(self, func: Callable, *args: str | Asset):
         try:
             func(*args)
         except StorageError as e:
@@ -292,7 +298,7 @@ class PortfolioAppUI(ft.Column):
             return False
         return True
 
-    def add_asset(self, asset):
+    def add_asset(self, asset: Asset):
         result = self.storage_call(save_data, asset)
         if result:
             add_to_portfolio(asset)
@@ -302,15 +308,15 @@ class PortfolioAppUI(ft.Column):
             return True
         return False
 
-    def delete_asset(self, asset):
-        result = self.storage_call(delete_data, asset)
+    def delete_asset(self, asset_type: str):
+        result = self.storage_call(delete_data, asset_type)
         if result:
-            remove_from_portfolio(asset)
+            remove_from_portfolio(asset_type)
             cal_percentage(portfolio.assets)
             self.refresh()
             self.show_msg("Asset removed successfully")
 
-    def edit_asset(self, asset):
+    def edit_asset(self, asset: Asset):
         result = self.storage_call(edit_data, asset)
         if result:
             edit_in_portfolio(asset)
