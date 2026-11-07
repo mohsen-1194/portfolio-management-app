@@ -1,8 +1,8 @@
 import json
+import math
 import os
 from collections.abc import Callable
 from dataclasses import field
-from typing import Any
 
 # from pathlib import Path
 import flet as ft
@@ -12,6 +12,10 @@ from models import Asset, portfolio
 # This path is for build env. Commented out for dev env.
 # DATA_FILE = Path(os.getenv("FLET_APP_STORAGE_DATA", ".")) / "data.json"
 asset_types_options = [ft.dropdown.Option(t) for t in portfolio.asset_types]
+
+
+class StorageError(Exception):
+    pass
 
 
 def add_to_portfolio(asset: Asset) -> None:
@@ -46,19 +50,47 @@ def cal_percentage(assets: list[Asset]) -> None:
         asset.percentage = round((asset.amount_of_cash / total) * 100, 2)
 
 
-def _load() -> Any | dict:
-    # load existing (or start fresh if file doesn't exist)
-    if os.path.exists("data.json") and os.path.getsize("data.json") > 0:
-        with open("data.json", "r", encoding="utf-8") as f:
-            data = json.load(f)
-    else:
-        data = {}
+def _validate(data: dict):
+    # I should log specific reason here for each error
+    msg = "Your saved data has an unexpected format."
+    if type(data) is not dict:
+        raise StorageError(msg)
+
+    for item in data.values():
+        if type(item) is not dict:
+            raise StorageError(msg)
+        if "amount_of_cash" not in item:
+            raise StorageError(msg)
+        if type(item["amount_of_cash"]) not in (float, int):
+            raise StorageError(msg)
+        if item["amount_of_cash"] <= 0:
+            raise StorageError(msg)
+        if not math.isfinite(item["amount_of_cash"]):
+            raise StorageError(msg)
+
+
+def _load() -> dict:
+    try:
+        if os.path.exists("data.json") and os.path.getsize("data.json") > 0:
+            with open("data.json", "r", encoding="utf-8") as f:
+                data = json.load(f)
+                _validate(data)
+        else:
+            data = {}
+    except (json.JSONDecodeError, UnicodeDecodeError) as e:
+        raise StorageError("File is damaged") from e
+    except OSError as e:
+        raise StorageError("Cannot open the file") from e
+
     return data
 
 
 def _write(data: dict) -> None:
-    with open("data.json", "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
+    try:
+        with open("data.json", "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+    except OSError as e:
+        raise StorageError("Failed to save data.") from e
 
 
 def save_data(asset: Asset) -> None:
@@ -97,8 +129,7 @@ def read_data() -> None:
 def delete_data(asset: Asset) -> None:
     data = _load()
 
-    if len(data) > 0:
-        data.pop(asset.asset_type)
+    data.pop(asset.asset_type, None)
 
     _write(data)
 
@@ -106,8 +137,7 @@ def delete_data(asset: Asset) -> None:
 def edit_data(asset: Asset) -> None:
     data = _load()
 
-    if len(data) > 0:
-        data[asset.asset_type]["amount_of_cash"] = asset.amount_of_cash
+    data[asset.asset_type] = {"amount_of_cash": asset.amount_of_cash}
 
     _write(data)
 
@@ -253,55 +283,41 @@ class PortfolioAppUI(ft.Column):
         self.empty_portfolio_msg.visible = not portfolio.assets
         self.update()
 
-    def add_asset(self, asset):
+    def storage_call(self, func, *args):
         try:
-            save_data(asset)
-        except json.JSONDecodeError:
-            self.show_msg("Your saved data could not be read")
-            # could log the real error here for devs
+            func(*args)
+        except StorageError as e:
+            # should add logging here from e.__cause__
+            self.show_msg(str(e))
             return False
-        except OSError:
-            self.show_msg("Failed to save data")
-            # could log the real error here for devs
-            return False
-        add_to_portfolio(asset)
-        cal_percentage(portfolio.assets)
-        self.refresh()
-        self.show_msg("Asset saved successfully")
         return True
 
+    def add_asset(self, asset):
+        result = self.storage_call(save_data, asset)
+        if result:
+            add_to_portfolio(asset)
+            cal_percentage(portfolio.assets)
+            self.refresh()
+            self.show_msg("Asset saved successfully")
+            return True
+        return False
+
     def delete_asset(self, asset):
-        try:
-            delete_data(asset)
-        except json.JSONDecodeError:
-            self.show_msg("Your saved data could not be read")
-            # could log the real error here for devs
-            return
-        except OSError:
-            self.show_msg("Failed to delete data")
-            # could log the real error here for devs
-            return
-        remove_from_portfolio(asset)
-        cal_percentage(portfolio.assets)
-        self.refresh()
-        self.show_msg("Asset removed successfully")
+        result = self.storage_call(delete_data, asset)
+        if result:
+            remove_from_portfolio(asset)
+            cal_percentage(portfolio.assets)
+            self.refresh()
+            self.show_msg("Asset removed successfully")
 
     def edit_asset(self, asset):
-        try:
-            edit_data(asset)
-        except json.JSONDecodeError:
-            self.show_msg("Your saved data could not be read")
-            # could log the real error here for devs
-            return
-        except OSError:
-            self.show_msg("Failed to edit data")
-            # could log the real error here for devs
-            return
-        edit_in_portfolio(asset)
-        cal_percentage(portfolio.assets)
-        self.refresh()
-        self.page.pop_dialog()
-        self.show_msg("Asset edited successfully")
+        result = self.storage_call(edit_data, asset)
+        if result:
+            edit_in_portfolio(asset)
+            cal_percentage(portfolio.assets)
+            self.refresh()
+            self.page.pop_dialog()
+            self.show_msg("Asset edited successfully")
 
 
 def main(page: ft.Page) -> None:
@@ -313,8 +329,8 @@ def main(page: ft.Page) -> None:
     error_msg = ""
     try:
         read_data()
-    except json.JSONDecodeError:
-        error_msg = "Your saved data could not be read"
+    except StorageError as e:
+        error_msg = str(e)
 
     portfolio_ui = PortfolioAppUI()
     page.floating_action_button = ft.FloatingActionButton(
