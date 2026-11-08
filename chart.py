@@ -14,7 +14,7 @@ COLORS = {
 }
 
 
-def color_for(asset_type: str) -> str:
+def color_for(asset_type: str) -> ft.Colors | None:
     return COLORS.get(asset_type)
 
 
