@@ -8,4 +8,4 @@ Built with Python and the [Flet](https://flet.dev) library.
 
 ## Status
 In development.
-The pie chart is not implemented yet.
+

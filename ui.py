@@ -4,6 +4,7 @@ from dataclasses import field
 
 import flet as ft
 
+from chart import AssetsChart, AssetSection, color_for
 from logic import (
     add_to_portfolio,
     cal_percentage,
@@ -19,7 +20,8 @@ class PortfolioAppUI(ft.Column):
     def init(self):
         self.asset_rows = ft.Column()
         self.empty_portfolio_msg = ft.Text("No assets yet. Press + button to add one.")
-        self.controls = [self.empty_portfolio_msg, self.asset_rows]
+        self.chart = AssetsChart()
+        self.controls = [self.empty_portfolio_msg, self.asset_rows, self.chart]
 
     def add_clicked(self, e):
         add_asset_dialog = AddAssetDialog(on_save=self.add_asset)
@@ -36,11 +38,24 @@ class PortfolioAppUI(ft.Column):
                 asset_type=asset.asset_type,
                 amount_of_cash=asset.amount_of_cash,
                 percentage=asset.percentage,
+                color=color_for(asset.asset_type),
                 on_delete=self.delete_asset,
                 on_edit=self.edit_asset,
             )
             self.asset_rows.controls.append(new_asset_row)
+
+        self.chart.sections.clear()
+
+        for asset in portfolio.assets:
+            new_asset_section = AssetSection(
+                title=f"{asset.percentage:.1f}%",
+                value=asset.amount_of_cash,
+                color=color_for(asset.asset_type),
+            )
+            self.chart.sections.append(new_asset_section)
+
         self.empty_portfolio_msg.visible = not portfolio.assets
+        self.chart.visible = bool(portfolio.assets)
         self.update()
 
     def storage_call(self, func: Callable, *args: str | Asset):
@@ -85,11 +100,18 @@ class AssetRow(ft.Row):
     asset_type: str = ""
     amount_of_cash: float = 0.0
     percentage: float = 0.0
+    color: str = ""
     on_delete: Callable[[str], None] = field(default=lambda asset_type: None)
     on_edit: Callable[[Asset], bool] = field(default=lambda asset: False)
 
     def init(self):
         self.controls = [
+            ft.Container(
+                width=12,
+                height=12,
+                bgcolor=self.color,
+                border_radius=6,
+            ),
             ft.Text(self.asset_type, expand=True),
             ft.Text(f"{self.percentage:.1f}%"),
             ft.Text(f"{self.amount_of_cash:,.2f}"),
