@@ -9,6 +9,8 @@ def main(page: ft.Page) -> None:
     page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
     page.window.width = 450
     page.window.height = 750
+    page.window.resizable = False
+    page.window.maximizable = False
 
     error_msg = ""
     try:
@@ -18,8 +20,7 @@ def main(page: ft.Page) -> None:
 
     portfolio_ui = PortfolioAppUI()
     page.floating_action_button = ft.FloatingActionButton(
-        icon=ft.Icons.ADD,
-        on_click=portfolio_ui.add_clicked,
+        icon=ft.Icons.ADD, on_click=portfolio_ui.add_clicked, tooltip="Add asset"
     )
     page.floating_action_button_location = ft.FloatingActionButtonLocation.END_FLOAT
 

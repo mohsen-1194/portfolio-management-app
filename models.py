@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-DEFAULT_ASSET_TYPES = ["Cash", "Gold", "Silver", "Energy", "Stocks", "Cryptocurrency"]
+DEFAULT_ASSET_TYPES = ["Cash", "Gold", "Silver", "Energy", "Stocks", "Crypto"]
 
 
 @dataclass

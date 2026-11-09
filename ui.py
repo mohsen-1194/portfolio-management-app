@@ -4,7 +4,7 @@ from dataclasses import field
 
 import flet as ft
 
-from chart import AssetsChart, AssetSection, color_for
+from chart import AssetsChart, AssetSection, color_for, show_percentage
 from logic import (
     add_to_portfolio,
     cal_percentage,
@@ -18,10 +18,18 @@ from storage import StorageError, delete_data, edit_data, save_data
 @ft.control
 class PortfolioAppUI(ft.Column):
     def init(self):
-        self.asset_rows = ft.Column()
-        self.empty_portfolio_msg = ft.Text("No assets yet. Press + button to add one.")
+        self.horizontal_alignment = ft.CrossAxisAlignment.CENTER
+
+        self.empty_portfolio_msg = ft.Text(
+            "No assets yet.\nPress + button to add one.",
+            size=20,
+            weight=ft.FontWeight.W_500,
+            text_align=ft.TextAlign.CENTER,
+            margin=80,
+        )
         self.chart = AssetsChart()
-        self.controls = [self.empty_portfolio_msg, self.asset_rows, self.chart]
+        self.asset_rows = ft.Column()
+        self.controls = [self.empty_portfolio_msg, self.chart, self.asset_rows]
 
     def add_clicked(self, e):
         add_asset_dialog = AddAssetDialog(on_save=self.add_asset)
@@ -48,7 +56,7 @@ class PortfolioAppUI(ft.Column):
 
         for asset in portfolio.assets:
             new_asset_section = AssetSection(
-                title=f"{asset.percentage:.1f}%",
+                title=show_percentage(asset.percentage),
                 value=asset.amount_of_cash,
                 color=color_for(asset.asset_type),
             )
@@ -105,25 +113,52 @@ class AssetRow(ft.Row):
     on_edit: Callable[[Asset], bool] = field(default=lambda asset: False)
 
     def init(self):
+        self.alignment = ft.MainAxisAlignment.SPACE_BETWEEN
+        self.vertical_alignment = ft.CrossAxisAlignment.CENTER
         self.controls = [
-            ft.Container(
-                width=12,
-                height=12,
-                bgcolor=self.color,
-                border_radius=6,
+            ft.Row(
+                spacing=10,
+                controls=[
+                    ft.Container(
+                        width=12,
+                        height=12,
+                        bgcolor=self.color,
+                        border_radius=6,
+                    ),
+                    ft.Text(
+                        self.asset_type,
+                        size=16,
+                        weight=ft.FontWeight.W_500,
+                    ),
+                    ft.Text(
+                        f"{self.percentage:.1f}%",
+                        size=15,
+                        weight=ft.FontWeight.W_400,
+                    ),
+                ],
             ),
-            ft.Text(self.asset_type, expand=True),
-            ft.Text(f"{self.percentage:.1f}%"),
-            ft.Text(f"{self.amount_of_cash:,.2f}"),
-            ft.IconButton(
-                icon=ft.Icons.CREATE_OUTLINED,
-                tooltip="Edit asset",
-                on_click=self.edit_clicked,
-            ),
-            ft.IconButton(
-                icon=ft.Icons.DELETE_OUTLINE,
-                tooltip="Delete asset",
-                on_click=self.delete_clicked,
+            ft.Row(
+                spacing=5,
+                controls=[
+                    ft.Text(
+                        f"{self.amount_of_cash:,.2f}",
+                        size=16,
+                    ),
+                    ft.IconButton(
+                        icon=ft.Icons.CREATE_OUTLINED,
+                        icon_size=20,
+                        tooltip="Edit asset",
+                        on_click=self.edit_clicked,
+                        icon_color=ft.Colors.GREEN,
+                    ),
+                    ft.IconButton(
+                        icon=ft.Icons.DELETE_OUTLINE,
+                        icon_size=20,
+                        tooltip="Delete asset",
+                        on_click=self.delete_clicked,
+                        icon_color=ft.Colors.RED,
+                    ),
+                ],
             ),
         ]
 
