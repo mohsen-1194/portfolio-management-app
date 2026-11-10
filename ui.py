@@ -28,7 +28,7 @@ class PortfolioAppUI(ft.Column):
             margin=80,
         )
         self.chart = AssetsChart()
-        self.asset_rows = ft.Column()
+        self.asset_rows = ft.Column(spacing=0)
         self.controls = [self.empty_portfolio_msg, self.chart, self.asset_rows]
 
     def add_clicked(self, e):
@@ -138,10 +138,10 @@ class AssetRow(ft.Row):
                 ],
             ),
             ft.Row(
-                spacing=5,
+                spacing=1,
                 controls=[
                     ft.Text(
-                        f"{self.amount_of_cash:,.2f}",
+                        f"{self.amount_of_cash:,.2f} ",
                         size=16,
                     ),
                     ft.IconButton(
@@ -169,7 +169,11 @@ class AssetRow(ft.Row):
     def delete_clicked(self, e):
         confirm_dialog = ft.AlertDialog(
             title=ft.Text("Delete asset"),
-            content=ft.Text(f"Do you want to delete {self.asset_type}?"),
+            content=ft.Text(
+                f'Do you want to delete "{self.asset_type}" ?',
+                size=17,
+                weight=ft.FontWeight.W_400,
+            ),
             actions=[
                 ft.TextButton("Delete", on_click=self.delete_confirmed),
                 ft.TextButton("Cancel", on_click=lambda e: self.page.pop_dialog()),

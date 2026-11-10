@@ -1,15 +1,15 @@
 import flet as ft
 import flet_charts as fch
 
-RADIUS = 60
-CENTER_HOLE = 40
+RADIUS = 65
+CENTER_HOLE = 60
 TITLE_STYLE = ft.TextStyle(size=10, color=ft.Colors.WHITE, weight=ft.FontWeight.BOLD)
 COLORS = {
     "Gold": "#E69F00",
     "Silver": "#8E9AAF",
     "Cash": "#009E73",
     "Energy": "#D55E00",
-    "Crypto": "#CC79A7",
+    "Crypto": "#07DCE3",
     "Stocks": "#0072B2",
 }
 
