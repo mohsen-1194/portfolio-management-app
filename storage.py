@@ -1,13 +1,12 @@
 import json
 import math
 import os
+from pathlib import Path
 
 from logic import add_to_portfolio, cal_percentage
 from models import Asset, portfolio
 
-# This path is for build env. Commented out for dev env.
-# DATA_FILE = Path(os.getenv("FLET_APP_STORAGE_DATA", ".")) / "data.json"
-DATA_FILE = "data.json"
+DATA_FILE = Path(os.getenv("FLET_APP_STORAGE_DATA", ".")) / "data.json"
 
 
 class StorageError(Exception):

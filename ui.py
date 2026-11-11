@@ -22,7 +22,7 @@ class PortfolioAppUI(ft.Column):
 
         self.empty_portfolio_msg = ft.Text(
             "No assets yet.\nPress + button to add one.",
-            size=20,
+            size=18,
             weight=ft.FontWeight.W_500,
             text_align=ft.TextAlign.CENTER,
             margin=80,
