@@ -15,4 +15,9 @@ dev = [
     "flet-desktop>=1.0.5",
     "flet-web>=1.0.5",
     "flet[test]>=1.0.5",
+    "pytest>=9.2.0",
 ]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

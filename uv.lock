@@ -880,6 +880,7 @@ dev = [
     { name = "flet-cli" },
     { name = "flet-desktop" },
     { name = "flet-web" },
+    { name = "pytest" },
 ]
 
 [package.metadata]
@@ -894,6 +895,7 @@ dev = [
     { name = "flet-cli", specifier = ">=1.0.5" },
     { name = "flet-desktop", specifier = ">=1.0.5" },
     { name = "flet-web", specifier = ">=1.0.5" },
+    { name = "pytest", specifier = ">=9.2.0" },
 ]
 
 [[package]]

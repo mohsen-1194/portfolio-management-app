@@ -11,3 +11,4 @@ wheels/
 
 .mypy_cache
 .flet
+.pytest_cache
