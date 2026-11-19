@@ -4,6 +4,7 @@ import flet_charts as fch
 RADIUS = 65
 CENTER_HOLE = 60
 TITLE_STYLE = ft.TextStyle(size=10, color=ft.Colors.WHITE, weight=ft.FontWeight.BOLD)
+MIN_LABEL_PERCENT = 5
 COLORS = {
     "Gold": "#E69F00",
     "Silver": "#8E9AAF",
@@ -19,7 +20,7 @@ def color_for(asset_type: str) -> str | None:
 
 
 def show_percentage(percentage: float) -> str | None:
-    if round(percentage, 1) <= 5:
+    if round(percentage, 1) <= MIN_LABEL_PERCENT:
         return None
     return f"{percentage:.1f}%"
 
