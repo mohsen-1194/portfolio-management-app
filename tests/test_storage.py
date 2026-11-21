@@ -14,6 +14,7 @@ import json
 import math
 
 import pytest
+from helpers import read_json
 
 import storage
 from models import Asset, portfolio
@@ -28,10 +29,6 @@ GOOD = {
 
 def write_json(path, obj):
     path.write_text(json.dumps(obj), encoding="utf-8")
-
-
-def read_json(path):
-    return json.loads(path.read_text(encoding="utf-8"))
 
 
 # ---------------------------------------------------------------------------
