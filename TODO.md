@@ -7,3 +7,5 @@ The list so far is:
 - clearer names in the dialog
 - a dictionary for portfolio.assets
 - strict type check.
+- add total amount and total row
+- add cal amount for catching percentage
